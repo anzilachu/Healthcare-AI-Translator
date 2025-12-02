@@ -63,7 +63,22 @@ export function Translator() {
     };
   }, [stop]);
 
-  const handleTranslate = async () => {
+  // Auto-translate debounce
+  useEffect(() => {
+    if (!inputText.trim()) return;
+
+    // Don't auto-translate if we just got a fresh translation
+    // Also don't auto-translate while listening - wait for user to stop
+    if (hasFreshTranslation || isListening) return;
+
+    const timer = setTimeout(() => {
+      handleTranslate(false); // Don't auto-speak on typing, only on explicit stop or button
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [inputText, hasFreshTranslation, isListening]);
+
+  const handleTranslate = async (autoPlay = false) => {
     if (!inputText.trim()) return;
     setIsTranslating(true);
     setError(null);
@@ -87,8 +102,16 @@ export function Translator() {
       }
 
       const data = await res.json();
-      setTranslatedText(data.translated ?? "");
+      const translated = data.translated ?? "";
+      setTranslatedText(translated);
       setHasFreshTranslation(true);
+
+      if (autoPlay && translated) {
+        // Small delay to ensure state is settled/user is ready
+        setTimeout(() => {
+          speakText(translated, targetLang);
+        }, 100);
+      }
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
     } finally {
@@ -107,7 +130,7 @@ export function Translator() {
   const handleStopListening = () => {
     stop();
     if (inputText.trim()) {
-      handleTranslate();
+      handleTranslate(true); // Auto-speak when stopping dictation
     }
   };
 
@@ -132,13 +155,13 @@ export function Translator() {
     }
   };
 
-  const handleSpeakTranslated = () => {
-    if (!translatedText.trim() || !canSpeak) return;
+  const speakText = (text: string, langCode: string) => {
+    if (!text.trim() || !canSpeak) return;
     if (typeof window === "undefined") return;
 
     try {
-      const utterance = new SpeechSynthesisUtterance(translatedText);
-      utterance.lang = getSpeechLang(targetLang);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = getSpeechLang(langCode);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
 
@@ -148,6 +171,10 @@ export function Translator() {
     } catch {
       setIsSpeaking(false);
     }
+  };
+
+  const handleSpeakTranslated = () => {
+    speakText(translatedText, targetLang);
   };
 
   const handleCopy = async () => {
@@ -167,8 +194,8 @@ export function Translator() {
         onClick={isListening ? handleStopListening : start}
         disabled={!canListen}
         className={`fixed bottom-6 left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${isListening
-            ? "bg-red-500 text-white hover:bg-red-600 active:scale-95"
-            : "bg-green-500 text-white hover:bg-green-600 active:scale-95"
+          ? "bg-red-500 text-white hover:bg-red-600 active:scale-95"
+          : "bg-green-500 text-white hover:bg-green-600 active:scale-95"
           } disabled:bg-zinc-400 disabled:cursor-not-allowed sm:h-14 sm:w-14`}
         aria-label={isListening ? "Stop speaking" : "Start speaking"}
       >
@@ -349,7 +376,7 @@ export function Translator() {
           {!hasFreshTranslation && (
             <button
               type="button"
-              onClick={handleTranslate}
+              onClick={() => handleTranslate(false)}
               disabled={isTranslating || !inputText.trim()}
               className="mt-2 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-zinc-50 shadow-sm transition hover:bg-zinc-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-600 sm:mt-0"
             >

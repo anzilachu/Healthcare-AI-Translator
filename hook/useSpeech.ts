@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 export function useSpeechRecognition(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
 
   // Keep a stable, growing final transcript and a lighter-weight interim layer
-  const finalTranscriptRef = useRef("");
 
   useEffect(() => {
     const SpeechRecognition =
@@ -21,33 +20,32 @@ export function useSpeechRecognition(onResult: (text: string) => void) {
     (recog as any).maxAlternatives = 1;
 
     recog.onresult = (event: any) => {
-      let stable = finalTranscriptRef.current;
+      let final = "";
       let interim = "";
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      // Rebuild the transcript from scratch based on the current event's result list
+      // This avoids duplication issues if the browser resends previous segments
+      for (let i = 0; i < event.results.length; i++) {
         const res = event.results[i];
         const text = String(res[0]?.transcript ?? "");
         if (res.isFinal) {
-          // Commit final segment once, to stabilize mid‑sentence behavior
-          stable += (stable ? " " : "") + text.trim();
+          final += (final ? " " : "") + text.trim();
         } else {
           interim += " " + text.trim();
         }
       }
 
-      finalTranscriptRef.current = stable.trim();
-      const combined = (stable + interim).trim();
-
-      // Lightweight guard: only push meaningful updates to avoid jitter
-      if (combined && combined !== stable) {
-        onResult(combined);
-      } else if (stable && !combined) {
-        onResult(stable);
-      }
+      const combined = (final + interim).trim();
+      onResult(combined);
     };
 
     recog.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+
+    recog.onend = () => {
+      setIsListening(false);
     };
 
     setRecognition(recog);
@@ -61,7 +59,6 @@ export function useSpeechRecognition(onResult: (text: string) => void) {
 
   const start = () => {
     if (!recognition) return;
-    finalTranscriptRef.current = "";
     setIsListening(true);
     recognition.start();
   };
