@@ -20,19 +20,28 @@ export function useSpeechRecognition(onResult: (text: string) => void) {
     (recog as any).maxAlternatives = 1;
 
     recog.onresult = (event: any) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
+      // Collect all transcripts
+      const transcripts: string[] = [];
       for (let i = 0; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
+        transcripts.push(event.results[i][0].transcript);
       }
 
-      onResult(finalTranscript + interimTranscript);
+      // Deduplicate: If transcript[i] is a prefix of transcript[i+1], ignore transcript[i]
+      // This fixes the Android Chrome bug where it sends cumulative segments as separate results
+      // e.g. ["my", "my name", "my name is"] -> "my name is"
+      let combined = "";
+      for (let i = 0; i < transcripts.length; i++) {
+        const current = transcripts[i].trim();
+        const next = transcripts[i + 1]?.trim();
+
+        if (next && next.toLowerCase().startsWith(current.toLowerCase())) {
+          continue; // Skip this segment as it's included in the next one
+        }
+
+        combined += (combined ? " " : "") + current;
+      }
+
+      onResult(combined);
     };
 
     recog.onerror = (event: any) => {
