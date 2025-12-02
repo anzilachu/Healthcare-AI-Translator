@@ -98,7 +98,8 @@ export function Translator() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to translate");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to translate");
       }
 
       const data = await res.json();
@@ -229,7 +230,17 @@ export function Translator() {
         )}
       </button>
 
-      <div className="w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80 sm:p-6">
+      <div className="mt-[15px] w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80 sm:mt-0 sm:p-6">
+        {/* Medical Safety Notice */}
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50/50 p-2.5 dark:border-amber-600/30 dark:bg-amber-950/20 sm:mb-6 sm:p-3">
+          <svg className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-xs leading-snug text-amber-900 dark:text-amber-100">
+            <strong>Medical Notice:</strong> AI translations may not be 100% accurate. For critical medical decisions, always use a professional medical interpreter. Medical abbreviations are automatically expanded for better accuracy.
+          </p>
+        </div>
+
         <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-2xl">
@@ -354,35 +365,31 @@ export function Translator() {
                   disabled={!translatedText || !canSpeak || isSpeaking}
                   className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition enabled:hover:border-zinc-300 enabled:hover:bg-zinc-50 enabled:active:scale-95 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:enabled:hover:border-zinc-600 dark:enabled:hover:bg-zinc-800"
                 >
-                  {isSpeaking ? "Playing…" : "Speak"}
+                  {isSpeaking ? "Playing…" : "Play"}
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 mb-8 flex flex-col gap-2 sm:mb-0 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1 text-xs text-zinc-500 dark:text-zinc-500">
-            <p>
-              Optimized for medical instructions and symptom descriptions. Always
-              confirm critical information with a professional.
-            </p>
-            <p className="font-medium text-zinc-600 dark:text-zinc-400">
-              🔒 Privacy: No patient data is stored. All information is processed
-              in-memory and automatically cleared when you leave the page.
-            </p>
-          </div>
-
+        <div className="mt-4 mb-2 flex flex-col gap-2 sm:mb-0 sm:flex-row sm:items-center sm:justify-between">
           {!hasFreshTranslation && (
             <button
               type="button"
               onClick={() => handleTranslate(false)}
               disabled={isTranslating || !inputText.trim()}
-              className="mt-2 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-zinc-50 shadow-sm transition hover:bg-zinc-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-600 sm:mt-0"
+              className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-zinc-50 shadow-sm transition hover:bg-zinc-800 active:scale-95 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-600"
             >
               {isTranslating ? "Translating..." : "Translate"}
             </button>
           )}
+
+          <div className="space-y-1 text-xs text-zinc-500 dark:text-zinc-500">
+            <p className="font-medium text-zinc-600 dark:text-zinc-400">
+              🔒 Privacy: No patient data is stored. All information is processed
+              in-memory and automatically cleared when you leave the page.
+            </p>
+          </div>
         </div>
 
         {error && (

@@ -1,6 +1,7 @@
 // app/api/translate/route.ts
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { prepareMedicalText } from "../../../../lib/medicalTerms";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -147,18 +148,57 @@ export async function POST(req: Request) {
       );
     }
 
-    const prompt = `Translate the following medical text from ${source} to ${target}. 
-Ensure accuracy, correct terminology, and short, clear phrasing:
+    // Prepare medical text with abbreviation expansion
+    const medicalAnalysis = prepareMedicalText(text);
+    const textForTranslation = medicalAnalysis.isMedical
+      ? medicalAnalysis.processedText
+      : text;
 
-${text}`;
+    // Build medical-optimized prompt
+    const systemPrompt = `You are a professional medical translator specializing in healthcare communication.
+
+CRITICAL REQUIREMENTS:
+1. ACCURACY: Medical terms, drug names, and dosages must be translated with 100% accuracy
+2. CLARITY: Use simple, clear language that patients and families can understand
+3. CULTURAL SENSITIVITY: Adapt medical concepts appropriately for the target culture
+4. CONSISTENCY: Use standard medical terminology in the target language
+5. SAFETY: If uncertain about any medical term, keep it in the original language with explanation
+
+TRANSLATION GUIDELINES:
+- Keep drug/medication names in original language with phonetic help if needed
+- Preserve all numbers, dosages, and measurements exactly
+- Translate symptoms and instructions clearly
+- Use formal, respectful tone appropriate for healthcare settings
+- For emergency terms, prioritize clarity over brevity
+
+EXAMPLES:
+- "Take 500mg twice daily" → (Spanish) "Tome 500mg dos veces al día"
+- "chest pain" → (Spanish) "dolor en el pecho"
+- "BP 120/80" → (Spanish) "Presión arterial 120/80"`;
+
+    const userPrompt = medicalAnalysis.isEmergency
+      ? `⚠️ EMERGENCY MEDICAL CONTENT - Prioritize accuracy and clarity.
+      
+Translate from ${source} to ${target}:
+
+${textForTranslation}
+
+Note: This appears to contain emergency medical information. Ensure the translation is immediately understandable.`
+      : `Translate this ${medicalAnalysis.isMedical ? 'medical' : 'healthcare'} text from ${source} to ${target}:
+
+${textForTranslation}`;
 
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-20b",
-      temperature: 0.3,
+      temperature: 0.2, // Lower temperature for medical accuracy
       messages: [
         {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
           role: "user",
-          content: prompt,
+          content: userPrompt,
         },
       ],
       max_completion_tokens: 500,
