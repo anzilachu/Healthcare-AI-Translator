@@ -35,7 +35,22 @@ export function useSpeechRecognition(onResult: (text: string) => void) {
         }
       }
 
-      const combined = (final + interim).trim();
+      // Android Chrome fix: Check if interim text includes the final text
+      // Often on mobile, the interim result contains the entire phrase including what was just finalized
+      let combined = final;
+      const cleanFinal = final.trim().toLowerCase();
+      const cleanInterim = interim.trim().toLowerCase();
+
+      if (cleanInterim && cleanFinal && cleanInterim.startsWith(cleanFinal)) {
+        // If interim starts with final, it's likely a full transcript, so use interim only (but keep original case from interim)
+        // We use the length of the final string to find where the "new" part starts in the original interim string, 
+        // but simpler is to just use the interim string if it looks like a superset.
+        // However, we must be careful about case. Let's trust the interim's content.
+        combined = interim.trim();
+      } else {
+        combined = (final + " " + interim).trim();
+      }
+
       onResult(combined);
     };
 
